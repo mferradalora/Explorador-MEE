@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[ ]:
-
-
 import time
 import datetime
 import requests
@@ -28,9 +22,9 @@ st.set_page_config(
 
 st.title("💧 Explorador MEE - DGA Chile")
 st.markdown("""
-Esta plataforma integra la exploración espacial y administrativa de las obras contenidas en el software de **Monitoreo de Extracciones Efectivas (MEE)** de la 
-Direccion general de Aguas (DGA), permitiendo visualizar su ubicación geográfica y descargar las series históricas de extracciones y restituciones. \n Toda la información 
-es recogida directamente desde la web https://dga.mop.gob.cl/informacion-de-extracciones-contenidas-en-software-mee/.
+La plataforma permite visualizar la ubicación geográfica de las obras registradas en el software de Monitoreo de Extracciones Efectivas (MEE) de la Dirección General de Aguas (DGA) 
+y descargar las series históricas de extracciones y restituciones disponibles. Toda la información es recogida directamente desde 
+la web https://dga.mop.gob.cl/informacion-de-extracciones-contenidas-en-software-mee/.
 """)
 
 # Referencia latitudinal de Norte a Sur para ordenamiento administrativo
@@ -79,9 +73,9 @@ def cargar_y_procesar_datos(path_csv):
         
     df['Fecha_Registro_Clean'] = df['Fecha_Registro_Clean'].fillna(datetime.date(2020, 1, 1))
 
-    # Conversión de UTM a EPSG:4326 (WGS84)
-    df['UTM_Norte'] = pd.to_numeric(df['UTM_Norte'], errors='coerce')
-    df['UTM_Este'] = pd.to_numeric(df['UTM_Este'], errors='coerce')
+    # --- FIX DTYPE: Conversión explícita a float antes de aplicar ruido ---
+    df['UTM_Norte'] = pd.to_numeric(df['UTM_Norte'], errors='coerce').astype(float)
+    df['UTM_Este'] = pd.to_numeric(df['UTM_Este'], errors='coerce').astype(float)
     df['Huso'] = pd.to_numeric(df['Huso'], errors='coerce')
     
     # Ruido aleatorio (+-10m) para superposición de obras en la misma coordenada
@@ -184,7 +178,7 @@ def descargar_reporte_dga(codigo_obra, id_obra, fecha_desde_dt):
 # -------------------------------------------------------------------------
 # 4. CARGA DE DATOS Y FILTROS LATITUDINALES (SIDEBAR)
 # -------------------------------------------------------------------------
-PATH_CSV = "Listado Obras MEE.csv"
+PATH_CSV = "Listado_Obras_MEE.csv"
 
 try:
     df_obras = cargar_y_procesar_datos(PATH_CSV)
@@ -331,7 +325,7 @@ else:
             try:
                 contenido_binario = descargar_reporte_dga(obra_sel, id_sel, fecha_ini)
                 
-                st.success(f"✅ Descarga completada exitosamente desde la DGA.")
+                st.success(f"✅ Descarga completada exitosamente.")
                 st.download_button(
                     label=f"💾 Guardar {obra_sel}.xls",
                     data=contenido_binario,
@@ -339,5 +333,4 @@ else:
                     mime="application/vnd.ms-excel"
                 )
             except Exception as err:
-                st.error(f"❌ Error durante la extracción desde el servidor DGA: {err}")
-
+                st.error(f"❌ Error durante la descarga: {err}")
