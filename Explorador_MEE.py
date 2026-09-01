@@ -1,10 +1,6 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[ ]:
-
-
+import io
 import time
+import zipfile
 import datetime
 import requests
 import re
@@ -27,6 +23,8 @@ st.set_page_config(
 )
 
 st.title("💧 Explorador MEE - DGA Chile")
+st.caption("📅 Actualización: Julio 2026")
+
 st.markdown("""
 La plataforma permite visualizar la ubicación geográfica de las obras registradas en el software de Monitoreo de Extracciones Efectivas (MEE) de la Dirección General de Aguas (DGA) 
 y descargar las series históricas de extracciones y restituciones disponibles. Toda la información es recogida directamente desde 
@@ -300,44 +298,82 @@ with col_right:
     )
 
 # -------------------------------------------------------------------------
-# 6. MÓDULO DE EXTRACCIÓN MEE DGA
+# 6. MÓDULO DE EXTRACCIÓN MEE DGA (MULTISELECCIÓN HASTA 10 OBRAS)
 # -------------------------------------------------------------------------
 st.markdown("---")
-st.subheader("📥 Descarga de Registros de Extracción y Restitución")
+st.subheader("📥 Descarga Masiva de Registros de Extracción y Restitución")
 
 if df_filtrado.empty:
     st.warning("⚠️ No existen obras disponibles con los filtros seleccionados.")
 else:
     obras_lista = sorted(df_filtrado['Codigo_Obra'].unique())
-    obra_sel = st.selectbox("Seleccione el Código de la Obra a Descargar:", obras_lista)
     
-    row_sel = df_filtrado[df_filtrado['Codigo_Obra'] == obra_sel].iloc[0]
-    id_sel = row_sel['ID_Obra']
-    fecha_ini = row_sel['Fecha_Registro_Clean']
-    fecha_fin = datetime.date.today()
+    obras_seleccionadas = st.multiselect(
+        "Seleccione los Códigos de las Obras a Descargar (Máximo 10):",
+        options=obras_lista,
+        max_selections=10,
+        help="Puedes elegir entre 1 y 10 obras. Si seleccionas varias, se compilarán en un archivo comprimido .zip."
+    )
     
-    es_rest = obra_sel.startswith("OR")
-    tipo_obra = "Obra de Restitución" if es_rest else "Obra de Extracción"
-
-    st.info(f"""
-    **Ficha de Descarga:**
-    * **Obra:** `{obra_sel}` ({tipo_obra}) | **ID DGA:** `{id_sel}`
-    * **Titular:** {row_sel.get('Usuario', 'No registrado')}
-    * **Ventana de Consulta:** Desde `{fecha_ini.strftime('%d/%m/%Y')}` hasta `{fecha_fin.strftime('%d/%m/%Y')}` (Hoy)
-    """)
-
-    if st.button("📡 Descargar Serie desde Servidor DGA"):
-        with st.spinner(f"Solicitando datos a la API DGA para {obra_sel}..."):
-            try:
-                contenido_binario = descargar_reporte_dga(obra_sel, id_sel, fecha_ini)
+    if not obras_seleccionadas:
+        st.info("💡 Por favor, seleccione al menos una obra del listado para habilitar la descarga.")
+    else:
+        st.write(f"📋 **Obras seleccionadas ({len(obras_seleccionadas)}/10):** {', '.join(obras_seleccionadas)}")
+        
+        if st.button("📡 Solicitar Lote a la API DGA"):
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            # Buffer temporal en memoria RAM para crear el ZIP
+            zip_buffer = io.BytesIO()
+            archivos_exitosos = 0
+            
+            with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+                for idx, obra_sel in enumerate(obras_seleccionadas):
+                    status_text.text(f"⏳ Consultando DGA para {obra_sel} ({idx+1}/{len(obras_seleccionadas)})...")
+                    
+                    row_sel = df_filtrado[df_filtrado['Codigo_Obra'] == obra_sel].iloc[0]
+                    id_sel = row_sel['ID_Obra']
+                    fecha_ini = row_sel['Fecha_Registro_Clean']
+                    
+                    try:
+                        contenido_binario = descargar_reporte_dga(obra_sel, id_sel, fecha_ini)
+                        # Agregar el archivo binario al ZIP
+                        zip_file.writestr(f"{obra_sel}.xls", contenido_binario)
+                        archivos_exitosos += 1
+                    except Exception as err:
+                        st.error(f"❌ Error al descargar {obra_sel}: {err}")
+                    
+                    # Actualización de la barra de progreso
+                    progress_bar.progress((idx + 1) / len(obras_seleccionadas))
+                    time.sleep(0.5) # Pausa de cortesía entre peticiones
+            
+            status_text.text("✅ Proceso de extracción finalizado.")
+            
+            if archivos_exitosos > 0:
+                zip_buffer.seek(0)
                 
-                st.success(f"✅ Descarga completada exitosamente.")
-                st.download_button(
-                    label=f"💾 Guardar {obra_sel}.xls",
-                    data=contenido_binario,
-                    file_name=f"{obra_sel}.xls",
-                    mime="application/vnd.ms-excel"
-                )
-            except Exception as err:
-                st.error(f"❌ Error durante la descarga: {err}")
-
+                if len(obras_seleccionadas) == 1:
+                    # Si eligió solo 1 obra, descarga directa en .xls
+                    obra_unica = obras_seleccionadas[0]
+                    row_u = df_filtrado[df_filtrado['Codigo_Obra'] == obra_unica].iloc[0]
+                    binario_u = descargar_reporte_dga(obra_unica, row_u['ID_Obra'], row_u['Fecha_Registro_Clean'])
+                    
+                    st.success(f"✅ Reporte listo para {obra_unica}.")
+                    st.download_button(
+                        label=f"💾 Guardar {obra_unica}.xls",
+                        data=binario_u,
+                        file_name=f"{obra_unica}.xls",
+                        mime="application/vnd.ms-excel"
+                    )
+                else:
+                    # Si eligió entre 2 y 10 obras, descarga el paquete .zip
+                    st.success(f"✅ Se compilaron exitosamente {archivos_exitosos} reportes en un paquete comprimido.")
+                    nombre_zip = f"reportes_MEE_DGA_{datetime.date.today().strftime('%Y%m%d')}.zip"
+                    
+                    st.download_button(
+                        label=f"💾 Descargar Paquete (.zip)",
+                        data=zip_buffer,
+                        file_name=nombre_zip,
+                        mime="application/zip"
+                    )
