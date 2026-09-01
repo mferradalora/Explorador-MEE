@@ -309,7 +309,7 @@ else:
     obras_lista = sorted(df_filtrado['Codigo_Obra'].unique())
     
     obras_seleccionadas = st.multiselect(
-        "Seleccione los Códigos de las Obras a Descargar (Máximo 10):",
+        "Seleccione los códigos de las obras a descargar (máximo 10):",
         options=obras_lista,
         max_selections=10,
         help="Puedes elegir entre 1 y 10 obras. Si seleccionas varias, se compilarán en un archivo comprimido .zip."
@@ -320,7 +320,7 @@ else:
     else:
         st.write(f"📋 **Obras seleccionadas ({len(obras_seleccionadas)}/10):** {', '.join(obras_seleccionadas)}")
         
-        if st.button("📡 Solicitar Registros a la API DGA"):
+        if st.button("📡 Solicitar registros a la web DGA"):
             progress_bar = st.progress(0)
             status_text = st.empty()
             
@@ -330,7 +330,7 @@ else:
             
             with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
                 for idx, obra_sel in enumerate(obras_seleccionadas):
-                    status_text.text(f"⏳ Consultando DGA para {obra_sel} ({idx+1}/{len(obras_seleccionadas)})...")
+                    status_text.text(f"⏳ Consultando para {obra_sel} ({idx+1}/{len(obras_seleccionadas)})...")
                     
                     row_sel = df_filtrado[df_filtrado['Codigo_Obra'] == obra_sel].iloc[0]
                     id_sel = row_sel['ID_Obra']
@@ -348,7 +348,7 @@ else:
                     progress_bar.progress((idx + 1) / len(obras_seleccionadas))
                     time.sleep(0.5) # Pausa de cortesía entre peticiones
             
-            status_text.text("✅ Proceso de extracción finalizado.")
+            status_text.text("✅ Proceso de consulta finalizado")
             
             if archivos_exitosos > 0:
                 zip_buffer.seek(0)
@@ -369,7 +369,7 @@ else:
                 else:
                     # Si eligió entre 2 y 10 obras, descarga el paquete .zip
                     st.success(f"✅ Se compilaron exitosamente {archivos_exitosos} reportes en un paquete comprimido.")
-                    nombre_zip = f"reportes_MEE_DGA_{datetime.date.today().strftime('%Y%m%d')}.zip"
+                    nombre_zip = f"Registros_MEE_DGA_{datetime.date.today().strftime('%Y%m%d')}.zip"
                     
                     st.download_button(
                         label=f"💾 Descargar Registros (.zip)",
