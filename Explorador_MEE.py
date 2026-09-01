@@ -301,7 +301,7 @@ with col_right:
 # 6. MÓDULO DE EXTRACCIÓN MEE DGA (MULTISELECCIÓN HASTA 10 OBRAS)
 # -------------------------------------------------------------------------
 st.markdown("---")
-st.subheader("📥 Descarga Masiva de Registros de Extracción y Restitución")
+st.subheader("📥 Descarga de Registros de Extracciones Efectivas")
 
 if df_filtrado.empty:
     st.warning("⚠️ No existen obras disponibles con los filtros seleccionados.")
@@ -320,7 +320,7 @@ else:
     else:
         st.write(f"📋 **Obras seleccionadas ({len(obras_seleccionadas)}/10):** {', '.join(obras_seleccionadas)}")
         
-        if st.button("📡 Solicitar Lote a la API DGA"):
+        if st.button("📡 Solicitar Registros a la API DGA"):
             progress_bar = st.progress(0)
             status_text = st.empty()
             
@@ -361,7 +361,7 @@ else:
                     
                     st.success(f"✅ Reporte listo para {obra_unica}.")
                     st.download_button(
-                        label=f"💾 Guardar {obra_unica}.xls",
+                        label=f"💾 Descargar {obra_unica}.xls",
                         data=binario_u,
                         file_name=f"{obra_unica}.xls",
                         mime="application/vnd.ms-excel"
@@ -372,7 +372,7 @@ else:
                     nombre_zip = f"reportes_MEE_DGA_{datetime.date.today().strftime('%Y%m%d')}.zip"
                     
                     st.download_button(
-                        label=f"💾 Descargar Paquete (.zip)",
+                        label=f"💾 Descargar Registros (.zip)",
                         data=zip_buffer,
                         file_name=nombre_zip,
                         mime="application/zip"
