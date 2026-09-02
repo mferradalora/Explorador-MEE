@@ -77,7 +77,28 @@ def cargar_y_procesar_datos(path_csv):
         
     df['Fecha_Registro_Clean'] = df['Fecha_Registro_Clean'].fillna(datetime.date(2020, 1, 1))
 
-    # --- FIX DTYPE: Conversión explícita a float antes de aplicar ruido ---
+    # --- CÁLCULO DE CAUDAL PROMEDIO MENSUAL (L/s) ---
+    cols_caudales = [
+        'Caudal_Ene_ls', 'Caudal_Feb_ls', 'Caudal_Mar_ls', 'Caudal_Abr_ls',
+        'Caudal_May_ls', 'Caudal_Jun_ls', 'Caudal_Jul_ls', 'Caudal_Ago_ls',
+        'Caudal_Sep_ls', 'Caudal_Oct_ls', 'Caudal_Nov_ls', 'Caudal_Dic_ls'
+    ]
+    
+    # Conversión segura a float soportando comas o números en texto
+    for col in cols_caudales:
+        if col in df.columns:
+            df[col] = pd.to_numeric(
+                df[col].astype(str).str.replace(',', '.'), 
+                errors='coerce'
+            )
+
+    cols_existentes = [c for c in cols_caudales if c in df.columns]
+    if cols_existentes:
+        df['Caudal_Mensual_ls'] = df[cols_existentes].mean(axis=1).round(2)
+    else:
+        df['Caudal_Mensual_ls'] = np.nan
+
+    # --- Conversión explícita de coordenadas UTM a float antes de aplicar ruido ---
     df['UTM_Norte'] = pd.to_numeric(df['UTM_Norte'], errors='coerce').astype(float)
     df['UTM_Este'] = pd.to_numeric(df['UTM_Este'], errors='coerce').astype(float)
     df['Huso'] = pd.to_numeric(df['Huso'], errors='coerce')
@@ -253,13 +274,14 @@ with col_left:
             color = "#007bff" if "superficial" in nat else "#6c757d"
             
             popup_html = f"""
-            <div style="font-family: Arial; font-size: 12px; width: 210px;">
+            <div style="font-family: Arial; font-size: 12px; width: 220px;">
                 <b>Código Obra:</b> {row['Codigo_Obra']}<br>
                 <b>ID Obra DGA:</b> {row['ID_Obra']}<br>
                 <b>Titular:</b> {row.get('Usuario', 'N/I')}<br>
                 <b>Naturaleza:</b> {row.get('Naturaleza', 'N/I')}<br>
                 <b>Cuenca:</b> {row.get('Cuenca', 'N/I')}<br>
-                <b>Último Caudal:</b> {row.get('Ultimo_Caudal_Medido_ls', 'N/I')} L/s
+                <b>Caudal Prom. Mensual:</b> {row.get('Caudal_Mensual_ls', 'N/I')} L/s<br>
+                <b>Último Caudal Medido:</b> {row.get('Ultimo_Caudal_Medido_ls', 'N/I')} L/s
             </div>
             """
             
@@ -271,7 +293,7 @@ with col_left:
                 fill=True,
                 fill_color=color,
                 fill_opacity=0.85,
-                popup=folium.Popup(popup_html, max_width=260),
+                popup=folium.Popup(popup_html, max_width=270),
                 tooltip=f"{row['Codigo_Obra']} | {row.get('Usuario', '')}"
             ).add_to(mapa)
 
@@ -287,7 +309,7 @@ with col_right:
     st.subheader("📊 Listado de Obras")
     st.metric("Total Obras Identificadas", f"{len(df_filtrado):,}")
     
-    cols_mostrar = ['Codigo_Obra', 'Usuario', 'Naturaleza', 'Cuenca', 'UTM_Norte', 'UTM_Este', 'Fecha_Registro_DGA']
+    cols_mostrar = ['Codigo_Obra', 'Usuario', 'Naturaleza', 'Cuenca', 'Caudal_Mensual_ls', 'UTM_Norte', 'UTM_Este', 'Fecha_Registro_DGA']
     cols_validas = [c for c in cols_mostrar if c in df_filtrado.columns]
     
     st.dataframe(
@@ -324,7 +346,6 @@ else:
             progress_bar = st.progress(0)
             status_text = st.empty()
             
-            # Buffer temporal en memoria RAM para crear el ZIP
             zip_buffer = io.BytesIO()
             archivos_exitosos = 0
             
@@ -338,15 +359,13 @@ else:
                     
                     try:
                         contenido_binario = descargar_reporte_dga(obra_sel, id_sel, fecha_ini)
-                        # Agregar el archivo binario al ZIP
                         zip_file.writestr(f"{obra_sel}.xls", contenido_binario)
                         archivos_exitosos += 1
                     except Exception as err:
                         st.error(f"❌ Error al descargar {obra_sel}: {err}")
                     
-                    # Actualización de la barra de progreso
                     progress_bar.progress((idx + 1) / len(obras_seleccionadas))
-                    time.sleep(0.5) # Pausa de cortesía entre peticiones
+                    time.sleep(0.5)
             
             status_text.text("✅ Proceso de consulta finalizado")
             
@@ -354,7 +373,6 @@ else:
                 zip_buffer.seek(0)
                 
                 if len(obras_seleccionadas) == 1:
-                    # Si eligió solo 1 obra, descarga directa en .xls
                     obra_unica = obras_seleccionadas[0]
                     row_u = df_filtrado[df_filtrado['Codigo_Obra'] == obra_unica].iloc[0]
                     binario_u = descargar_reporte_dga(obra_unica, row_u['ID_Obra'], row_u['Fecha_Registro_Clean'])
@@ -367,7 +385,6 @@ else:
                         mime="application/vnd.ms-excel"
                     )
                 else:
-                    # Si eligió entre 2 y 10 obras, descarga el paquete .zip
                     st.success(f"✅ Se compilaron exitosamente {archivos_exitosos} reportes en un paquete comprimido.")
                     nombre_zip = f"Registros_MEE_DGA_{datetime.date.today().strftime('%Y%m%d')}.zip"
                     
