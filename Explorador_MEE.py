@@ -287,7 +287,7 @@ with col_right:
     st.subheader("📊 Listado de Obras")
     st.metric("Total Obras Identificadas", f"{len(df_filtrado):,}")
     
-    cols_mostrar = ['Codigo_Obra', 'ID_Obra', 'Usuario', 'Naturaleza', 'Cuenca', 'Fecha_Registro_DGA']
+    cols_mostrar = ['Codigo_Obra', 'Usuario', 'Naturaleza', 'Cuenca', 'UTM_Norte', 'UTM_Este', 'Fecha_Registro_DGA']
     cols_validas = [c for c in cols_mostrar if c in df_filtrado.columns]
     
     st.dataframe(
