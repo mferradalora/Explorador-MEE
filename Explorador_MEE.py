@@ -276,12 +276,10 @@ with col_left:
             popup_html = f"""
             <div style="font-family: Arial; font-size: 12px; width: 220px;">
                 <b>Código Obra:</b> {row['Codigo_Obra']}<br>
-                <b>ID Obra DGA:</b> {row['ID_Obra']}<br>
-                <b>Titular:</b> {row.get('Usuario', 'N/I')}<br>
+                <b>Usuario:</b> {row.get('Usuario', 'N/I')}<br>
                 <b>Naturaleza:</b> {row.get('Naturaleza', 'N/I')}<br>
                 <b>Cuenca:</b> {row.get('Cuenca', 'N/I')}<br>
-                <b>Caudal Prom. Mensual:</b> {row.get('Caudal_Mensual_ls', 'N/I')} L/s<br>
-                <b>Último Caudal Medido:</b> {row.get('Ultimo_Caudal_Medido_ls', 'N/I')} L/s
+                <b>Caudal Prom. Mensual:</b> {row.get('Caudal_Mensual_ls', 'N/I')} l/s
             </div>
             """
             
