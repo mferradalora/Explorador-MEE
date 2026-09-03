@@ -329,7 +329,7 @@ else:
     obras_lista = sorted(df_filtrado['Codigo_Obra'].unique())
     
     obras_seleccionadas = st.multiselect(
-        "Seleccione los códigos de las obras a descargar (máximo 10):",
+        "Seleccione los códigos de las obras a descargar (máximo 15):",
         options=obras_lista,
         max_selections=15,
         help="Puedes elegir entre 1 y 15 obras. Si seleccionas varias, se compilarán en un archivo comprimido .zip."
