@@ -318,7 +318,7 @@ with col_right:
     )
 
 # -------------------------------------------------------------------------
-# 6. MÓDULO DE EXTRACCIÓN MEE DGA (MULTISELECCIÓN HASTA 10 OBRAS)
+# 6. MÓDULO DE EXTRACCIÓN MEE DGA (MULTISELECCIÓN HASTA 15 OBRAS)
 # -------------------------------------------------------------------------
 st.markdown("---")
 st.subheader("📥 Descarga de Reportes de Extracciones Efectivas")
@@ -331,14 +331,14 @@ else:
     obras_seleccionadas = st.multiselect(
         "Seleccione los códigos de las obras a descargar (máximo 10):",
         options=obras_lista,
-        max_selections=10,
-        help="Puedes elegir entre 1 y 10 obras. Si seleccionas varias, se compilarán en un archivo comprimido .zip."
+        max_selections=15,
+        help="Puedes elegir entre 1 y 15 obras. Si seleccionas varias, se compilarán en un archivo comprimido .zip."
     )
     
     if not obras_seleccionadas:
-        st.info("💡 Por favor, seleccione al menos una obra del listado para habilitar la descarga.")
+        st.info("💡 Seleccione al menos una obra del listado para habilitar la descarga")
     else:
-        st.write(f"📋 **Obras seleccionadas ({len(obras_seleccionadas)}/10):** {', '.join(obras_seleccionadas)}")
+        st.write(f"📋 **Obras seleccionadas ({len(obras_seleccionadas)}/15):** {', '.join(obras_seleccionadas)}")
         
         if st.button("📡 Solicitar reportes a web DGA"):
             progress_bar = st.progress(0)
