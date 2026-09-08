@@ -32,7 +32,6 @@ y descargar las series históricas de extracciones y restituciones disponibles. 
 la web https://dga.mop.gob.cl/informacion-de-extracciones-contenidas-en-software-mee/.
 """)
 
-# Referencia latitudinal de Norte a Sur para ordenamiento administrativo
 ORDEN_NORTE_SUR = [
     "arica", "tarapaca", "antofagasta", "atacama", "coquimbo", 
     "valparaiso", "metropolitana", "higgins", "maule", "nuble", 
@@ -61,14 +60,12 @@ def obtener_indice_norte_sur(nombre_region):
 def cargar_y_procesar_datos(path_csv):
     df = pd.read_csv(path_csv)
     
-    # Sanitización de variables territoriales e identificadores
     df['Region'] = df['Region'].fillna('Sin Región').astype(str).str.strip()
     df['Provincia'] = df['Provincia'].fillna('Sin Provincia').astype(str).str.strip()
     df['Comuna'] = df['Comuna'].fillna('Sin Comuna').astype(str).str.strip()
     df['Codigo_Obra'] = df['Codigo_Obra'].fillna('S/C').astype(str).str.strip()
     df['ID_Obra'] = pd.to_numeric(df['ID_Obra'], errors='coerce').fillna(0).astype(int)
     
-    # Normalización de Fecha_Registro_DGA
     if 'Fecha_Registro_DGA' in df.columns:
         df['Fecha_Registro_Clean'] = pd.to_datetime(
             df['Fecha_Registro_DGA'], dayfirst=True, errors='coerce'
@@ -78,7 +75,6 @@ def cargar_y_procesar_datos(path_csv):
         
     df['Fecha_Registro_Clean'] = df['Fecha_Registro_Clean'].fillna(datetime.date(2020, 1, 1))
 
-    # --- CÁLCULO DE CAUDAL PROMEDIO MENSUAL (L/s) ---
     cols_caudales = [
         'Caudal_Ene_ls', 'Caudal_Feb_ls', 'Caudal_Mar_ls', 'Caudal_Abr_ls',
         'Caudal_May_ls', 'Caudal_Jun_ls', 'Caudal_Jul_ls', 'Caudal_Ago_ls',
@@ -98,12 +94,10 @@ def cargar_y_procesar_datos(path_csv):
     else:
         df['Caudal_Mensual_ls'] = np.nan
 
-    # --- Conversión explícita de coordenadas UTM a float antes de aplicar ruido ---
     df['UTM_Norte'] = pd.to_numeric(df['UTM_Norte'], errors='coerce').astype(float)
     df['UTM_Este'] = pd.to_numeric(df['UTM_Este'], errors='coerce').astype(float)
     df['Huso'] = pd.to_numeric(df['Huso'], errors='coerce')
     
-    # Ruido aleatorio (+-10m) para superposición de obras en la misma coordenada
     filas_duplicadas = df.duplicated(subset=['UTM_Este', 'UTM_Norte', 'Huso'], keep=False)
     if filas_duplicadas.any():
         df.loc[filas_duplicadas, 'UTM_Este'] += np.random.uniform(-10, 10, size=filas_duplicadas.sum())
@@ -158,7 +152,6 @@ def descargar_reporte_dga(codigo_obra, id_obra, fecha_desde_dt):
     fecha_desde_iso = f"{fecha_desde_dt.strftime('%Y-%m-%d')}T03:00:00.000Z"
     fecha_hasta_iso = f"{datetime.date.today().strftime('%Y-%m-%d')}T02:59:59.000Z"
     
-    # Diferenciación por prefijo: Extracción (OB) vs Restitución (OR)
     es_restitucion = str(codigo_obra).upper().startswith("OR")
 
     headers = {
@@ -213,7 +206,6 @@ except Exception as e:
 
 st.sidebar.header("🗺️ Filtros Administrativos")
 
-# 1. Región (Ordenada de Norte a Sur)
 regiones_presentes = list(df_obras['Region'].unique())
 regiones_ordenadas = sorted(regiones_presentes, key=obtener_indice_norte_sur)
 regiones_opt = ["Todas"] + regiones_ordenadas
@@ -224,14 +216,12 @@ df_filtrado = df_obras.copy()
 if region_sel != "Todas":
     df_filtrado = df_filtrado[df_filtrado['Region'] == region_sel]
 
-# 2. Provincia
 provincias_opt = ["Todas"] + sorted(list(df_filtrado['Provincia'].unique()))
 provincia_sel = st.sidebar.selectbox("Seleccionar Provincia:", provincias_opt)
 
 if provincia_sel != "Todas":
     df_filtrado = df_filtrado[df_filtrado['Provincia'] == provincia_sel]
 
-# 3. Comuna
 comunas_opt = ["Todas"] + sorted(list(df_filtrado['Comuna'].unique()))
 comuna_sel = st.sidebar.selectbox("Seleccionar Comuna:", comunas_opt)
 
@@ -239,7 +229,7 @@ if comuna_sel != "Todas":
     df_filtrado = df_filtrado[df_filtrado['Comuna'] == comuna_sel]
 
 # -------------------------------------------------------------------------
-# 5. VISUALIZACIÓN ESPACIAL (OPTIMIZADO CON MARKERCLUSTER)
+# 5. VISUALIZACIÓN ESPACIAL (MAPA + LEYENDA + CONTROL DE CAPAS LIMPIO)
 # -------------------------------------------------------------------------
 col_left, col_right = st.columns([1.2, 1])
 
@@ -256,10 +246,7 @@ with col_left:
         centro_lon = df_mapa['lon'].mean()
         mapa = folium.Map(location=[centro_lat, centro_lon], zoom_start=9, tiles=None)
         
-        # Capa base principal activa por defecto
         folium.TileLayer('OpenStreetMap', name='OpenStreetMap', overlay=False, control=True, show=True).add_to(mapa)
-        
-        # Capa secundaria seleccionable
         folium.TileLayer(
             tiles='https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', 
             attr='Google', 
@@ -269,13 +256,13 @@ with col_left:
             show=False
         ).add_to(mapa)
 
-        # --- OPTIMIZACIÓN CLAVE 1: Agrupamiento de marcadores para evitar colapso del navegador ---
+        # --- CONTROL=FALSE: Oculta la capa de clusters del selector de capas ---
         marker_cluster = MarkerCluster(
             disableClusteringAtZoom=14,
-            options={'maxClusterRadius': 40}
+            options={'maxClusterRadius': 40},
+            control=False
         ).add_to(mapa)
 
-        # --- OPTIMIZACIÓN CLAVE 2: Iteración to_dict('records') >10x más rápida que iterrows() ---
         for row in df_mapa.to_dict('records'):
             nat = str(row.get('Naturaleza', '')).lower()
             color = "#007bff" if "superficial" in nat else "#6c757d"
@@ -306,7 +293,28 @@ with col_left:
             bounds = [[df_mapa['lat'].min(), df_mapa['lon'].min()], [df_mapa['lat'].max(), df_mapa['lon'].max()]]
             mapa.fit_bounds(bounds)
             
+        # Genera el selector mostrando exclusivamente las capas base (OpenStreetMap e Híbrido)
         folium.LayerControl(collapsed=False).add_to(mapa)
+
+        # --- INYECCIÓN DE LEYENDA EN ESQUINA INFERIOR DERECHA ---
+        leyenda_html = """
+        <div style="position: fixed; 
+                    bottom: 25px; right: 10px; width: 135px; 
+                    background-color: white; z-index: 9999; font-size: 12px;
+                    border: 1px solid #ccc; border-radius: 6px; padding: 8px 10px;
+                    font-family: Arial, sans-serif; box-shadow: 0 2px 6px rgba(0,0,0,0.2);">
+            <b style="font-size: 12px; color: #333;">Naturaleza Obra</b>
+            <div style="display: flex; align-items: center; margin-top: 6px;">
+                <span style="height: 10px; width: 10px; background-color: #007bff; border-radius: 50%; display: inline-block; margin-right: 8px; border: 1px solid #000;"></span>
+                <span>Superficial</span>
+            </div>
+            <div style="display: flex; align-items: center; margin-top: 4px;">
+                <span style="height: 10px; width: 10px; background-color: #6c757d; border-radius: 50%; display: inline-block; margin-right: 8px; border: 1px solid #000;"></span>
+                <span>Subterránea</span>
+            </div>
+        </div>
+        """
+        mapa.get_root().html.add_child(folium.Element(leyenda_html))
 
     components.html(mapa._repr_html_(), height=500)
 
