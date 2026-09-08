@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 import folium
+from folium.plugins import MarkerCluster
 import streamlit as st
 import streamlit.components.v1 as components
 from pathlib import Path
@@ -84,7 +85,6 @@ def cargar_y_procesar_datos(path_csv):
         'Caudal_Sep_ls', 'Caudal_Oct_ls', 'Caudal_Nov_ls', 'Caudal_Dic_ls'
     ]
     
-    # Conversión segura a float soportando comas o números en texto
     for col in cols_caudales:
         if col in df.columns:
             df[col] = pd.to_numeric(
@@ -239,7 +239,7 @@ if comuna_sel != "Todas":
     df_filtrado = df_filtrado[df_filtrado['Comuna'] == comuna_sel]
 
 # -------------------------------------------------------------------------
-# 5. VISUALIZACIÓN ESPACIAL (CAPA PREDETERMINADA: OPENSTREETMAP)
+# 5. VISUALIZACIÓN ESPACIAL (OPTIMIZADO CON MARKERCLUSTER)
 # -------------------------------------------------------------------------
 col_left, col_right = st.columns([1.2, 1])
 
@@ -269,7 +269,14 @@ with col_left:
             show=False
         ).add_to(mapa)
 
-        for _, row in df_mapa.iterrows():
+        # --- OPTIMIZACIÓN CLAVE 1: Agrupamiento de marcadores para evitar colapso del navegador ---
+        marker_cluster = MarkerCluster(
+            disableClusteringAtZoom=14,
+            options={'maxClusterRadius': 40}
+        ).add_to(mapa)
+
+        # --- OPTIMIZACIÓN CLAVE 2: Iteración to_dict('records') >10x más rápida que iterrows() ---
+        for row in df_mapa.to_dict('records'):
             nat = str(row.get('Naturaleza', '')).lower()
             color = "#007bff" if "superficial" in nat else "#6c757d"
             
@@ -293,7 +300,7 @@ with col_left:
                 fill_opacity=0.85,
                 popup=folium.Popup(popup_html, max_width=270),
                 tooltip=f"{row['Codigo_Obra']} | {row.get('Usuario', '')}"
-            ).add_to(mapa)
+            ).add_to(marker_cluster)
 
         if len(df_mapa) > 1:
             bounds = [[df_mapa['lat'].min(), df_mapa['lon'].min()], [df_mapa['lat'].max(), df_mapa['lon'].max()]]
@@ -336,7 +343,7 @@ else:
     )
     
     if not obras_seleccionadas:
-        st.info("💡 Seleccione al menos una obra del listado para habilitar la descarga")
+        st.info("💡 Por favor, seleccione al menos una obra del listado para habilitar la descarga.")
     else:
         st.write(f"📋 **Obras seleccionadas ({len(obras_seleccionadas)}/15):** {', '.join(obras_seleccionadas)}")
         
