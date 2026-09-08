@@ -90,9 +90,9 @@ def cargar_y_procesar_datos(path_csv):
 
     cols_existentes = [c for c in cols_caudales if c in df.columns]
     if cols_existentes:
-        df['Caudal_Mensual_ls'] = df[cols_existentes].mean(axis=1).round(2)
+        df['Caudal_Derecho_ls'] = df[cols_existentes].mean(axis=1).round(2)
     else:
-        df['Caudal_Mensual_ls'] = np.nan
+        df['Caudal_Derecho_ls'] = np.nan
 
     df['UTM_Norte'] = pd.to_numeric(df['UTM_Norte'], errors='coerce').astype(float)
     df['UTM_Este'] = pd.to_numeric(df['UTM_Este'], errors='coerce').astype(float)
@@ -273,7 +273,7 @@ with col_left:
                 <b>Usuario:</b> {row.get('Usuario', 'N/I')}<br>
                 <b>Naturaleza:</b> {row.get('Naturaleza', 'N/I')}<br>
                 <b>Cuenca:</b> {row.get('Cuenca', 'N/I')}<br>
-                <b>Caudal Prom. Mensual:</b> {row.get('Caudal_Mensual_ls', 'N/I')} l/s
+                <b>Caudal Derecho:</b> {row.get('Caudal_Derecho_ls', 'N/I')} l/s
             </div>
             """
             
@@ -322,7 +322,7 @@ with col_right:
     st.subheader("📊 Listado de Obras")
     st.metric("Total Obras Identificadas", f"{len(df_filtrado):,}")
     
-    cols_mostrar = ['Codigo_Obra', 'Usuario', 'Naturaleza', 'Cuenca', 'Caudal_Mensual_ls', 'UTM_Norte', 'UTM_Este', 'Fecha_Registro_DGA']
+    cols_mostrar = ['Codigo_Obra', 'Usuario', 'Naturaleza', 'Cuenca', 'Caudal_Derecho_ls', 'UTM_Norte', 'UTM_Este', 'Fecha_Registro_DGA']
     cols_validas = [c for c in cols_mostrar if c in df_filtrado.columns]
     
     st.dataframe(
